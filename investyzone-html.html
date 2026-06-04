@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="theme-color" content="#7B2FBE"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="InvestyZone"/>
+<title>InvestyZone</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F0F2F8}
+input,select,button{font-family:inherit}
+input[type=date]::-webkit-calendar-picker-indicator{opacity:.5}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#7B2FBE40;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {BarChart,Bar,AreaChart,Area,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}=Recharts;
+
+const CATS_OUT=["Alimentação","Transporte","Lazer","Contas","Investimentos","Saúde","Outros"];
+const CATS_IN=["Salário","Freelance","Investimentos","Presente","Outros"];
+const FIXED_EX=["Internet","Energia","Água","Aluguel","Cartão","Streaming","Academia","Telefone"];
+const MONTHS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const MFULL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const PCOLS=["#7B2FBE","#9333EA","#A855F7","#C084FC","#6D28D9","#4C1D95","#B45FE8","#D8B4FE"];
+const fmt=v=>"R$ "+Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const uid=()=>Math.random().toString(36).slice(2);
+const today=()=>new Date().toISOString().split("T")[0];
+
+function Logo({size=40}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#9333EA"/><stop offset="100%" stopColor="#4C1D95"/></linearGradient></defs>
+      <circle cx="22" cy="22" r="21" fill="url(#lg)" stroke="#C084FC" strokeWidth="1"/>
+      <rect x="9" y="26" width="5" height="9" rx="1.5" fill="#C084FC" opacity="0.75"/>
+      <rect x="16" y="20" width="5" height="15" rx="1.5" fill="#A855F7"/>
+      <rect x="23" y="23" width="5" height="12" rx="1.5" fill="#C084FC" opacity="0.75"/>
+      <rect x="30" y="17" width="5" height="18" rx="1.5" fill="#A855F7"/>
+      <path d="M10 25 Q16 14 22 17 Q27 20 34 8" stroke="#E9D5FF" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <circle cx="10" cy="25" r="1.8" fill="#E9D5FF"/>
+      <circle cx="22" cy="17" r="1.8" fill="#E9D5FF"/>
+      <circle cx="34" cy="8" r="2.2" fill="white"/>
+      <path d="M32 6 L36 6 L36 10" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+const DEMO_TXS=[
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-06-05",note:"Salário junho"},
+  {id:uid(),type:"in",cat:"Freelance",val:1200,date:"2025-06-10",note:"Projeto web"},
+  {id:uid(),type:"out",cat:"Alimentação",val:680,date:"2025-06-03",note:"Supermercado"},
+  {id:uid(),type:"out",cat:"Transporte",val:180,date:"2025-06-04",note:"Uber"},
+  {id:uid(),type:"out",cat:"Lazer",val:220,date:"2025-06-08",note:"Cinema"},
+  {id:uid(),type:"out",cat:"Contas",val:350,date:"2025-06-01",note:"Energia e água"},
+  {id:uid(),type:"out",cat:"Saúde",val:150,date:"2025-06-12",note:"Farmácia"},
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-05-05",note:"Salário maio"},
+  {id:uid(),type:"out",cat:"Alimentação",val:710,date:"2025-05-10",note:"Supermercado"},
+  {id:uid(),type:"out",cat:"Transporte",val:200,date:"2025-05-15",note:"Combustível"},
+  {id:uid(),type:"out",cat:"Lazer",val:300,date:"2025-05-20",note:"Show"},
+  {id:uid(),type:"out",cat:"Contas",val:320,date:"2025-05-01",note:"Contas"},
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-04-05",note:"Salário abril"},
+  {id:uid(),type:"out",cat:"Alimentação",val:650,date:"2025-04-08",note:"Mercado"},
+  {id:uid(),type:"out",cat:"Contas",val:400,date:"2025-04-01",note:"Contas"},
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-03-05",note:"Salário março"},
+  {id:uid(),type:"out",cat:"Alimentação",val:600,date:"2025-03-10",note:"Mercado"},
+  {id:uid(),type:"out",cat:"Lazer",val:450,date:"2025-03-20",note:"Viagem"},
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-02-05",note:"Salário fev"},
+  {id:uid(),type:"out",cat:"Alimentação",val:590,date:"2025-02-08",note:"Mercado"},
+  {id:uid(),type:"in",cat:"Salário",val:5800,date:"2025-01-05",note:"Salário jan"},
+  {id:uid(),type:"out",cat:"Alimentação",val:620,date:"2025-01-10",note:"Mercado"},
+  {id:uid(),type:"out",cat:"Transporte",val:160,date:"2025-01-15",note:"Transporte"},
+];
+const DEMO_FIX=[
+  {id:uid(),name:"Internet",val:99.9,due:5,paid:true},
+  {id:uid(),name:"Energia",val:180,due:10,paid:false},
+  {id:uid(),name:"Água",val:75,due:12,paid:false},
+  {id:uid(),name:"Netflix",val:39.9,due:15,paid:true},
+  {id:uid(),name:"Aluguel",val:1500,due:1,paid:true},
+  {id:uid(),name:"Academia",val:89.9,due:8,paid:false},
+];
+const DEMO_GOALS=[
+  {id:uid(),name:"Viagem Europa",target:8000,current:2500,color:"#7B2FBE"},
+  {id:uid(),name:"Fundo Emergência",target:20000,current:12000,color:"#9333EA"},
+];
+
+function App(){
+  const [dark,setDark]=useState(false);
+  const [page,setPage]=useState("dashboard");
+  const [txs,setTxs]=useState(()=>{try{return JSON.parse(localStorage.getItem("iz_txs"))||DEMO_TXS;}catch{return DEMO_TXS;}});
+  const [fixed,setFixed]=useState(()=>{try{return JSON.parse(localStorage.getItem("iz_fix"))||DEMO_FIX;}catch{return DEMO_FIX;}});
+  const [goals,setGoals]=useState(()=>{try{return JSON.parse(localStorage.getItem("iz_goals"))||DEMO_GOALS;}catch{return DEMO_GOALS;}});
+  const [modal,setModal]=useState(null);
+  const [search,setSearch]=useState("");
+  const [fCat,setFCat]=useState("Todas");
+  const [fMonth,setFMonth]=useState(new Date().getMonth());
+  const [fYear]=useState(new Date().getFullYear());
+  const [form,setForm]=useState({});
+  const [toast,setToast]=useState(null);
+  const [navOpen,setNavOpen]=useState(false);
+
+  useEffect(()=>{localStorage.setItem("iz_txs",JSON.stringify(txs));},[txs]);
+  useEffect(()=>{localStorage.setItem("iz_fix",JSON.stringify(fixed));},[fixed]);
+  useEffect(()=>{localStorage.setItem("iz_goals",JSON.stringify(goals));},[goals]);
+
+  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
+  const closeModal=()=>{setModal(null);setForm({});};
+
+  const curTxs=useMemo(()=>txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===fMonth&&d.getFullYear()===fYear;}),[txs,fMonth,fYear]);
+  const totalIn=useMemo(()=>curTxs.filter(t=>t.type==="in").reduce((s,t)=>s+t.val,0),[curTxs]);
+  const totalOut=useMemo(()=>curTxs.filter(t=>t.type==="out").reduce((s,t)=>s+t.val,0),[curTxs]);
+  const balance=useMemo(()=>txs.reduce((s,t)=>t.type==="in"?s+t.val:s-t.val,0),[txs]);
+  const catData=useMemo(()=>{const m={};curTxs.filter(t=>t.type==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.val;});return Object.entries(m).map(([name,value])=>({name,value}));},[curTxs]);
+  const monthlyData=useMemo(()=>MONTHS.map((nm,i)=>{const mt=txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===i&&d.getFullYear()===fYear;});return{name:nm,Entradas:mt.filter(t=>t.type==="in").reduce((s,t)=>s+t.val,0),Saídas:mt.filter(t=>t.type==="out").reduce((s,t)=>s+t.val,0)};}), [txs,fYear]);
+  const evoData=useMemo(()=>{let b=0;return MONTHS.map((nm,i)=>{const mt=txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===i&&d.getFullYear()===fYear;});b+=mt.reduce((s,t)=>t.type==="in"?s+t.val:s-t.val,0);return{name:nm,Saldo:Math.round(b)};});},[txs,fYear]);
+  const filteredTxs=useMemo(()=>txs.filter(t=>{const ms=(t.note||"").toLowerCase().includes(search.toLowerCase())||t.cat.toLowerCase().includes(search.toLowerCase());const mc=fCat==="Todas"||t.cat===fCat;const d=new Date(t.date);return ms&&mc&&d.getMonth()===fMonth&&d.getFullYear()===fYear;}),[txs,search,fCat,fMonth,fYear]);
+  const overdue=fixed.filter(f=>!f.paid&&f.due<=new Date().getDate()+3);
+
+  const saveTx=()=>{
+    if(!form.val||!form.date)return showToast("Preencha os campos obrigatórios");
+    if(form.id)setTxs(p=>p.map(t=>t.id===form.id?{...form,val:parseFloat(form.val)}:t));
+    else setTxs(p=>[...p,{...form,id:uid(),val:parseFloat(form.val)}]);
+    showToast(form.id?"Atualizado!":"Adicionado!");closeModal();
+  };
+  const delTx=id=>{setTxs(p=>p.filter(t=>t.id!==id));showToast("Excluído!");};
+  const saveFixed=()=>{
+    if(!form.name||!form.val)return showToast("Preencha os campos");
+    if(form.id)setFixed(p=>p.map(f=>f.id===form.id?{...form,val:parseFloat(form.val),due:parseInt(form.due)}:f));
+    else setFixed(p=>[...p,{...form,id:uid(),val:parseFloat(form.val),due:parseInt(form.due||1),paid:false}]);
+    showToast("Conta fixa salva!");closeModal();
+  };
+  const saveGoal=()=>{
+    if(!form.name||!form.target)return showToast("Preencha os campos");
+    if(form.id)setGoals(p=>p.map(g=>g.id===form.id?{...form,target:parseFloat(form.target),current:parseFloat(form.current||0)}:g));
+    else setGoals(p=>[...p,{...form,id:uid(),target:parseFloat(form.target),current:parseFloat(form.current||0),color:"#7B2FBE"}]);
+    showToast("Meta salva!");closeModal();
+  };
+
+  const bg=dark?"#0F1117":"#F0F2F8";
+  const card=dark?"#1A1D27":"#FFFFFF";
+  const border=dark?"rgba(255,255,255,0.07)":"rgba(0,0,0,0.08)";
+  const text=dark?"#E8E9F0":"#1A1D27";
+  const muted=dark?"#8B8FA8":"#6B7280";
+  const accent="#7B2FBE";
+  const cs={background:card,border:`1px solid ${border}`,borderRadius:16,padding:"16px"};
+  const inp={width:"100%",background:dark?"#252836":"#F7F8FC",border:`1px solid ${border}`,borderRadius:10,padding:"11px 14px",color:text,fontSize:14,boxSizing:"border-box",outline:"none"};
+  const btn=(c=accent,out=false)=>({background:out?"transparent":c,color:out?c:"#fff",border:`2px solid ${c}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",fontWeight:600,fontSize:13});
+  const bdg=(c=accent)=>({background:`${c}20`,color:c,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:600,whiteSpace:"nowrap"});
+
+  const NAV=[{icon:"🏠",label:"Dashboard",id:"dashboard"},{icon:"📈",label:"Receitas",id:"entries"},{icon:"📉",label:"Despesas",id:"expenses"},{icon:"📌",label:"Contas Fixas",id:"fixed"},{icon:"📊",label:"Relatórios",id:"reports"},{icon:"🎯",label:"Metas",id:"goals"}];
+  const nav=id=>{setPage(id);setNavOpen(false);};
+
+  const TTip=({active,payload,label})=>{
+    if(!active||!payload?.length)return null;
+    return <div style={{background:card,border:`1px solid ${border}`,borderRadius:10,padding:"10px 14px",fontSize:12,color:text}}><p style={{margin:"0 0 6px",fontWeight:600,color:muted}}>{label}</p>{payload.map((p,i)=><p key={i} style={{margin:"2px 0",color:p.color,fontWeight:600}}>{p.name}: {fmt(p.value)}</p>)}</div>;
+  };
+
+  const Modal=({title,children,onSave})=>(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:999,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={closeModal}>
+      <div style={{...cs,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",borderRadius:"20px 20px 0 0",paddingBottom:32}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:40,height:4,background:border,borderRadius:4,margin:"0 auto 20px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h3 style={{margin:0,fontSize:17,fontWeight:700,color:text}}>{title}</h3>
+          <button onClick={closeModal} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,color:muted}}>×</button>
+        </div>
+        {children}
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          <button style={{...btn(accent),flex:1}} onClick={onSave}>Salvar</button>
+          <button style={btn(muted,true)} onClick={closeModal}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const F=({label,children})=>(
+    <div style={{marginBottom:14}}>
+      <label style={{fontSize:13,color:muted,display:"block",marginBottom:5,fontWeight:500}}>{label}</label>
+      {children}
+    </div>
+  );
+
+  const Dashboard=()=>(
+    <div>
+      {overdue.length>0&&<div style={{background:"#FF658415",border:"1px solid #FF658440",borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",gap:10}}><span>⚠️</span><span style={{fontSize:13,fontWeight:500,color:"#FF6584"}}>{overdue.length} conta(s) vencendo: {overdue.map(f=>f.name).join(", ")}</span></div>}
+      <div style={{background:"linear-gradient(135deg,#7B2FBE,#4C1D95)",borderRadius:20,padding:"24px 20px",marginBottom:16,color:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><Logo size={32}/><span style={{fontWeight:800,fontSize:16,letterSpacing:-0.3}}>InvestyZone</span></div>
+        <p style={{margin:0,fontSize:13,opacity:.8}}>Saldo Total</p>
+        <p style={{margin:"4px 0 0",fontSize:32,fontWeight:800,letterSpacing:-1}}>{fmt(balance)}</p>
+        <div style={{display:"flex",gap:20,marginTop:14}}>
+          <div><p style={{margin:0,fontSize:11,opacity:.7}}>Entradas</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>+{fmt(totalIn)}</p></div>
+          <div style={{width:1,background:"rgba(255,255,255,.2)"}}/>
+          <div><p style={{margin:0,fontSize:11,opacity:.7}}>Saídas</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>-{fmt(totalOut)}</p></div>
+          <div style={{width:1,background:"rgba(255,255,255,.2)"}}/>
+          <div><p style={{margin:0,fontSize:11,opacity:.7}}>Sobrou</p><p style={{margin:"2px 0 0",fontSize:15,fontWeight:700}}>{fmt(totalIn-totalOut)}</p></div>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        <button style={{...cs,border:"1px solid #43E97B40",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>{setModal("tx");setForm({type:"in",date:today(),val:"",cat:CATS_IN[0],note:""});}}>
+          <div style={{width:38,height:38,borderRadius:10,background:"#43E97B20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📈</div>
+          <div style={{textAlign:"left"}}><p style={{margin:0,fontSize:11,color:muted}}>Adicionar</p><p style={{margin:0,fontSize:14,fontWeight:700,color:"#43E97B"}}>Receita</p></div>
+        </button>
+        <button style={{...cs,border:"1px solid #A855F740",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>{setModal("tx");setForm({type:"out",date:today(),val:"",cat:CATS_OUT[0],note:""});}}>
+          <div style={{width:38,height:38,borderRadius:10,background:"#A855F720",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📉</div>
+          <div style={{textAlign:"left"}}><p style={{margin:0,fontSize:11,color:muted}}>Adicionar</p><p style={{margin:0,fontSize:14,fontWeight:700,color:"#A855F7"}}>Despesa</p></div>
+        </button>
+      </div>
+      <div style={{...cs,marginBottom:16}}>
+        <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Entradas vs Saídas — {fYear}</p>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={monthlyData} barSize={10} margin={{left:-20}}>
+            <CartesianGrid strokeDasharray="3 3" stroke={border}/>
+            <XAxis dataKey="name" tick={{fill:muted,fontSize:10}}/>
+            <YAxis tick={{fill:muted,fontSize:9}} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
+            <Tooltip content={<TTip/>}/>
+            <Bar dataKey="Entradas" fill="#43E97B" radius={[4,4,0,0]}/>
+            <Bar dataKey="Saídas" fill="#A855F7" radius={[4,4,0,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{...cs,marginBottom:16}}>
+        <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Categorias — {MONTHS[fMonth]}</p>
+        {catData.length>0?<>
+          <ResponsiveContainer width="100%" height={175}>
+            <PieChart><Pie data={catData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} paddingAngle={3} dataKey="value">{catData.map((_,i)=><Cell key={i} fill={PCOLS[i%PCOLS.length]}/>)}</Pie><Tooltip formatter={v=>fmt(v)} contentStyle={{background:card,border:`1px solid ${border}`,borderRadius:10,color:text,fontSize:12}}/></PieChart>
+          </ResponsiveContainer>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:4}}>{catData.map((c,i)=><div key={c.name} style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:8,height:8,borderRadius:2,background:PCOLS[i%PCOLS.length]}}/><span style={{fontSize:11,color:muted}}>{c.name}</span></div>)}</div>
+        </>:<p style={{color:muted,textAlign:"center",padding:"30px 0",fontSize:13}}>Sem despesas neste mês</p>}
+      </div>
+      <div style={cs}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <p style={{margin:0,fontSize:14,fontWeight:700,color:text}}>Últimos Lançamentos</p>
+          <button onClick={()=>setPage("expenses")} style={{background:"none",border:"none",cursor:"pointer",color:accent,fontSize:13,fontWeight:600}}>Ver todos</button>
+        </div>
+        {[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5).map(t=>(
+          <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:36,height:36,borderRadius:10,background:t.type==="in"?"#43E97B20":"#A855F720",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{t.type==="in"?"📈":"📉"}</div>
+              <div><p style={{margin:0,fontWeight:600,fontSize:13,color:text}}>{t.note||t.cat}</p><p style={{margin:0,fontSize:11,color:muted}}>{t.cat} · {new Date(t.date+"T00:00:00").toLocaleDateString("pt-BR")}</p></div>
+            </div>
+            <span style={{fontWeight:700,fontSize:14,color:t.type==="in"?"#43E97B":"#A855F7"}}>{t.type==="in"?"+":"-"}{fmt(t.val)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const Transactions=({type})=>(
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input placeholder="Pesquisar..." value={search} onChange={e=>setSearch(e.target.value)} style={{...inp,flex:1,minWidth:120}}/>
+        <select value={fCat} onChange={e=>setFCat(e.target.value)} style={{...inp,width:130}}><option>Todas</option>{(type==="out"?CATS_OUT:CATS_IN).map(c=><option key={c}>{c}</option>)}</select>
+        <select value={fMonth} onChange={e=>setFMonth(+e.target.value)} style={{...inp,width:88}}>{MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
+      </div>
+      <button style={{...btn(type==="in"?"#43E97B":"#A855F7"),width:"100%",marginBottom:12,padding:13}} onClick={()=>{setModal("tx");setForm({type,date:today(),val:"",cat:type==="out"?CATS_OUT[0]:CATS_IN[0],note:""});}}>+ {type==="in"?"Nova Receita":"Nova Despesa"}</button>
+      <div style={cs}>
+        {filteredTxs.filter(t=>t.type===type).length===0
+          ?<p style={{color:muted,textAlign:"center",padding:"40px 0",fontSize:13}}>Nenhum lançamento</p>
+          :filteredTxs.filter(t=>t.type===type).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                <div style={{width:38,height:38,borderRadius:10,background:type==="in"?"#43E97B20":"#A855F720",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{type==="in"?"📈":"📉"}</div>
+                <div style={{minWidth:0}}>
+                  <p style={{margin:0,fontWeight:600,fontSize:13,color:text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.note||t.cat}</p>
+                  <div style={{display:"flex",gap:6,marginTop:3,flexWrap:"wrap"}}><span style={bdg(type==="in"?"#43E97B":accent)}>{t.cat}</span><span style={{fontSize:11,color:muted}}>{new Date(t.date+"T00:00:00").toLocaleDateString("pt-BR")}</span></div>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:8}}>
+                <span style={{fontWeight:700,fontSize:13,color:type==="in"?"#43E97B":"#A855F7"}}>{type==="in"?"+":"-"}{fmt(t.val)}</span>
+                <button onClick={()=>{setModal("tx");setForm({...t,val:String(t.val)});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:2}}>✏️</button>
+                <button onClick={()=>delTx(t.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:2}}>🗑️</button>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  );
+
+  const Fixed=()=>(
+    <div>
+      <div style={{...cs,marginBottom:16,borderLeft:"4px solid #FA8231",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><p style={{margin:0,fontSize:12,color:muted}}>Total Fixo/Mês</p><p style={{margin:"4px 0 0",fontSize:22,fontWeight:700,color:text}}>{fmt(fixed.reduce((s,f)=>s+f.val,0))}</p></div>
+        <div style={{textAlign:"right"}}><p style={{margin:0,fontSize:12,color:muted}}>Pagas</p><p style={{margin:"4px 0 0",fontSize:16,fontWeight:700,color:"#43E97B"}}>{fixed.filter(f=>f.paid).length}/{fixed.length}</p></div>
+      </div>
+      <button style={{...btn("#FA8231"),width:"100%",marginBottom:12,padding:13}} onClick={()=>{setModal("fixed");setForm({name:"",val:"",due:"",paid:false});}}>+ Adicionar Conta Fixa</button>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {fixed.map(f=>(
+          <div key={f.id} style={{...cs,borderLeft:`4px solid ${f.paid?"#43E97B":"#FF6584"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+              <div><p style={{margin:0,fontWeight:700,fontSize:15,color:text}}>{f.name}</p><p style={{margin:"3px 0 0",fontSize:20,fontWeight:800,color:f.paid?"#43E97B":"#FF6584"}}>{fmt(f.val)}</p><p style={{margin:"4px 0 0",fontSize:12,color:muted}}>Vencimento: dia {f.due}</p></div>
+              <span style={bdg(f.paid?"#43E97B":"#FF6584")}>{f.paid?"✓ Pago":"Pendente"}</span>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setFixed(p=>p.map(x=>x.id===f.id?{...x,paid:!x.paid}:x))} style={{...btn(f.paid?"#FF6584":"#43E97B"),flex:1,fontSize:12,padding:8}}>{f.paid?"Desmarcar":"✓ Marcar Pago"}</button>
+              <button onClick={()=>{setModal("fixed");setForm({...f,val:String(f.val),due:String(f.due)});}} style={{...btn(accent,true),fontSize:12,padding:8}}>✏️</button>
+              <button onClick={()=>{setFixed(p=>p.filter(x=>x.id!==f.id));showToast("Excluído!");}} style={{...btn("#FF6584",true),fontSize:12,padding:8}}>🗑️</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const Reports=()=>{
+    const yTxs=txs.filter(t=>new Date(t.date).getFullYear()===fYear);
+    const yIn=yTxs.filter(t=>t.type==="in").reduce((s,t)=>s+t.val,0);
+    const yOut=yTxs.filter(t=>t.type==="out").reduce((s,t)=>s+t.val,0);
+    const saved=yIn-yOut;
+    const catY=useMemo(()=>{const m={};yTxs.filter(t=>t.type==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.val;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([name,value])=>({name,value}));},[yTxs]);
+    const mComp=useMemo(()=>MONTHS.map((nm,i)=>{const mt=txs.filter(t=>{const d=new Date(t.date);return d.getMonth()===i&&d.getFullYear()===fYear;});const mI=mt.filter(t=>t.type==="in").reduce((s,t)=>s+t.val,0);const mO=mt.filter(t=>t.type==="out").reduce((s,t)=>s+t.val,0);return{name:nm,Receitas:mI,Despesas:mO,Saldo:Math.round(mI-mO)};}),[txs]);
+    const best=mComp.reduce((b,m)=>m.Saldo>b.Saldo?m:b,{Saldo:-Infinity,name:""});
+    const worst=mComp.filter(m=>m.Despesas>0).reduce((w,m)=>m.Despesas>w.Despesas?m:w,{Despesas:-Infinity,name:""});
+    return(
+      <div>
+        <div style={{background:"linear-gradient(135deg,#7B2FBE,#4C1D95)",borderRadius:20,padding:"20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}><Logo size={52}/><div><p style={{margin:0,fontWeight:800,fontSize:20,color:"#fff",letterSpacing:-0.5}}>InvestyZone</p><p style={{margin:"3px 0 0",fontSize:12,color:"#C084FC"}}>Relatório Financeiro — {fYear}</p></div></div>
+          <div style={{textAlign:"right"}}><p style={{margin:0,fontSize:11,color:"#C084FC"}}>Gerado em</p><p style={{margin:"2px 0 0",fontSize:13,fontWeight:700,color:"#fff"}}>{new Date().toLocaleDateString("pt-BR")}</p></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          {[{l:"Total Receitas",v:fmt(yIn),c:"#43E97B"},{l:"Total Despesas",v:fmt(yOut),c:"#FF6584"},{l:"Economizado",v:fmt(saved),c:saved>=0?"#43E97B":"#FF6584"},{l:"Média Mensal",v:fmt(yOut/12),c:"#FA8231"}].map(x=>(
+            <div key={x.l} style={{...cs,borderLeft:`3px solid ${x.c}`}}><p style={{margin:0,fontSize:11,color:muted}}>{x.l}</p><p style={{margin:"5px 0 0",fontSize:16,fontWeight:700,color:text}}>{x.v}</p></div>
+          ))}
+        </div>
+        <div style={{...cs,marginBottom:16}}>
+          <p style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:text}}>🏆 Destaques do Ano</p>
+          {[{l:"Melhor mês",v:`${best.name} — ${fmt(best.Saldo)}`,c:"#43E97B",i:"🌟"},{l:"Maior gasto",v:`${worst.name} — ${fmt(worst.Despesas)}`,c:"#FF6584",i:"⚠️"},{l:"Média receita/mês",v:fmt(yIn/12),c:accent,i:"📋"}].map(x=>(
+            <div key={x.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px",background:dark?"#252836":"#F7F8FC",borderRadius:10,marginBottom:8}}>
+              <div><p style={{margin:0,fontSize:12,color:muted}}>{x.l}</p><p style={{margin:"2px 0 0",fontSize:14,fontWeight:700,color:x.c}}>{x.v}</p></div>
+              <span style={{fontSize:22}}>{x.i}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{...cs,marginBottom:16}}>
+          <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Receitas vs Despesas</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={mComp} barSize={9} margin={{left:-20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke={border}/>
+              <XAxis dataKey="name" tick={{fill:muted,fontSize:10}}/>
+              <YAxis tick={{fill:muted,fontSize:9}} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
+              <Tooltip content={<TTip/>}/>
+              <Bar dataKey="Receitas" fill="#43E97B" radius={[3,3,0,0]}/>
+              <Bar dataKey="Despesas" fill="#A855F7" radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...cs,marginBottom:16}}>
+          <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Evolução do Saldo</p>
+          <ResponsiveContainer width="100%" height={175}>
+            <AreaChart data={evoData} margin={{left:-20}}>
+              <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={accent} stopOpacity={0.35}/><stop offset="95%" stopColor={accent} stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={border}/>
+              <XAxis dataKey="name" tick={{fill:muted,fontSize:10}}/>
+              <YAxis tick={{fill:muted,fontSize:9}} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
+              <Tooltip content={<TTip/>}/>
+              <Area type="monotone" dataKey="Saldo" stroke={accent} strokeWidth={2} fill="url(#ag)"/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...cs,marginBottom:16}}>
+          <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Resumo por Mês</p>
+          {mComp.filter(m=>m.Receitas>0||m.Despesas>0).map(m=>(
+            <div key={m.name} style={{padding:"10px 0",borderBottom:`1px solid ${border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><span style={{fontSize:13,fontWeight:600,color:text}}>{m.name}</span><span style={{fontSize:13,fontWeight:700,color:m.Saldo>=0?"#43E97B":"#FF6584"}}>{m.Saldo>=0?"+":""}{fmt(m.Saldo)}</span></div>
+              <div style={{display:"flex",gap:14,marginBottom:5}}><span style={{fontSize:11,color:"#43E97B"}}>↑ {fmt(m.Receitas)}</span><span style={{fontSize:11,color:"#A855F7"}}>↓ {fmt(m.Despesas)}</span></div>
+              <div style={{background:dark?"#252836":"#F0F2F8",borderRadius:20,height:5,overflow:"hidden"}}><div style={{width:`${Math.min(100,m.Despesas/(m.Receitas||1)*100)}%`,height:"100%",background:"#A855F7",borderRadius:20}}/></div>
+            </div>
+          ))}
+        </div>
+        <div style={cs}>
+          <p style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:text}}>Gastos por Categoria</p>
+          {catY.map((c,i)=>{const pct=Math.round(c.value/(yOut||1)*100);return(
+            <div key={c.name} style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:2,background:PCOLS[i%PCOLS.length]}}/><span style={{fontSize:13,color:text,fontWeight:500}}>{c.name}</span></div><div><span style={{fontSize:13,fontWeight:700,color:text}}>{fmt(c.value)}</span><span style={{fontSize:11,color:muted,marginLeft:6}}>{pct}%</span></div></div>
+              <div style={{background:dark?"#252836":"#F0F2F8",borderRadius:20,height:7,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:PCOLS[i%PCOLS.length],borderRadius:20}}/></div>
+            </div>
+          );})}
+        </div>
+      </div>
+    );
+  };
+
+  const Goals=()=>(
+    <div>
+      <button style={{...btn(accent),width:"100%",marginBottom:12,padding:13}} onClick={()=>{setModal("goal");setForm({name:"",target:"",current:"",color:accent});}}>+ Nova Meta</button>
+      {goals.length===0&&<p style={{color:muted,textAlign:"center",padding:"40px 0",fontSize:13}}>Nenhuma meta cadastrada</p>}
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {goals.map(g=>{const pct=Math.min(100,Math.round((g.current/g.target)*100));return(
+          <div key={g.id} style={{...cs,borderLeft:`4px solid ${g.color}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}><div><p style={{margin:0,fontWeight:700,fontSize:15,color:text}}>{g.name}</p><p style={{margin:"4px 0 0",fontSize:13,color:muted}}>{fmt(g.current)} de {fmt(g.target)}</p></div><span style={{...bdg(g.color),fontSize:15,fontWeight:800}}>{pct}%</span></div>
+            <div style={{background:dark?"#252836":"#F0F2F8",borderRadius:20,height:10,overflow:"hidden",marginBottom:8}}><div style={{width:`${pct}%`,height:"100%",background:g.color,borderRadius:20}}/></div>
+            <p style={{margin:"0 0 12px",fontSize:12,color:muted}}>Faltam {fmt(Math.max(0,g.target-g.current))}</p>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setModal("goal");setForm({...g,target:String(g.target),current:String(g.current)});}} style={{...btn(accent,true),flex:1,fontSize:12}}>✏️ Editar</button>
+              <button onClick={()=>{setGoals(p=>p.filter(x=>x.id!==g.id));showToast("Meta excluída!");}} style={{...btn("#FF6584",true),fontSize:12}}>🗑️</button>
+            </div>
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{background:bg,minHeight:"100vh",color:text,fontFamily:"system-ui,sans-serif",maxWidth:520,margin:"0 auto",paddingBottom:80}}>
+      {/* Topbar */}
+      <div style={{background:card,borderBottom:`1px solid ${border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setNavOpen(true)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,color:text,padding:2}}>☰</button>
+          <Logo size={30}/>
+          <div><p style={{margin:0,fontWeight:800,fontSize:14,color:text,letterSpacing:-0.2}}>InvestyZone</p><p style={{margin:0,fontSize:11,color:muted}}>{MFULL[fMonth]} {fYear}</p></div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <select value={fMonth} onChange={e=>setFMonth(+e.target.value)} style={{...inp,width:78,padding:"6px 8px",fontSize:12}}>{MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}</select>
+          <button onClick={()=>setDark(d=>!d)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,padding:2}}>{dark?"☀️":"🌙"}</button>
+        </div>
+      </div>
+
+      {/* Drawer */}
+      {navOpen&&(
+        <div style={{position:"fixed",inset:0,zIndex:200}} onClick={()=>setNavOpen(false)}>
+          <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)"}}/>
+          <div style={{position:"absolute",left:0,top:0,bottom:0,width:265,background:card,display:"flex",flexDirection:"column",zIndex:201}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"24px 20px 16px",borderBottom:`1px solid ${border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <Logo size={44}/>
+                <div><p style={{margin:0,fontWeight:800,fontSize:16,color:text,letterSpacing:-0.3}}>InvestyZone</p><p style={{margin:0,fontSize:11,color:muted}}>Controle Financeiro</p></div>
+              </div>
+            </div>
+            <div style={{flex:1,padding:"12px 0",overflowY:"auto"}}>
+              {NAV.map(n=>(
+                <div key={n.id} onClick={()=>nav(n.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 20px",cursor:"pointer",background:page===n.id?`${accent}15`:"transparent",borderLeft:`3px solid ${page===n.id?accent:"transparent"}`,color:page===n.id?accent:text,fontWeight:page===n.id?600:400,fontSize:14}}>
+                  <span style={{fontSize:18}}>{n.icon}</span><span>{n.label}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:"16px",borderTop:`1px solid ${border}`}}>
+              <div style={{background:dark?"#252836":"#F0F2F8",borderRadius:12,padding:"12px"}}>
+                <p style={{margin:0,fontSize:11,color:muted}}>Saldo Total</p>
+                <p style={{margin:"4px 0 0",fontSize:18,fontWeight:800,color:accent}}>{fmt(balance)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{padding:"16px"}}>
+        {page==="dashboard"&&<Dashboard/>}
+        {page==="entries"&&<Transactions type="in"/>}
+        {page==="expenses"&&<Transactions type="out"/>}
+        {page==="fixed"&&<Fixed/>}
+        {page==="reports"&&<Reports/>}
+        {page==="goals"&&<Goals/>}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:520,background:card,borderTop:`1px solid ${border}`,display:"flex",zIndex:100}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>setPage(n.id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 4px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:`2px solid ${page===n.id?accent:"transparent"}`}}>
+            <span style={{fontSize:18}}>{n.icon}</span>
+            <span style={{fontSize:9,fontWeight:600,color:page===n.id?accent:muted,textTransform:"uppercase",letterSpacing:.3}}>{n.label.slice(0,7)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Modals */}
+      {modal==="tx"&&(
+        <Modal title={form.id?"Editar":(form.type==="in"?"Nova Receita":"Nova Despesa")} onSave={saveTx}>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>{["out","in"].map(t=><button key={t} onClick={()=>setForm(f=>({...f,type:t,cat:t==="out"?CATS_OUT[0]:CATS_IN[0]}))} style={{...btn(t==="in"?"#43E97B":"#A855F7",form.type!==t),flex:1,fontSize:13}}>{t==="in"?"📈 Receita":"📉 Despesa"}</button>)}</div>
+          <F label="Valor (R$)"><input type="number" inputMode="decimal" style={inp} value={form.val||""} onChange={e=>setForm(f=>({...f,val:e.target.value}))} placeholder="0,00"/></F>
+          <F label="Categoria"><select style={inp} value={form.cat||""} onChange={e=>setForm(f=>({...f,cat:e.target.value}))}>{(form.type==="out"?CATS_OUT:CATS_IN).map(c=><option key={c}>{c}</option>)}</select></F>
+          <F label="Data"><input type="date" style={inp} value={form.date||""} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/></F>
+          <F label="Observação"><input style={inp} value={form.note||""} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="Opcional"/></F>
+        </Modal>
+      )}
+      {modal==="fixed"&&(
+        <Modal title={form.id?"Editar Conta Fixa":"Nova Conta Fixa"} onSave={saveFixed}>
+          <F label="Nome da Conta"><input list="fx" style={inp} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Ex: Internet"/><datalist id="fx">{FIXED_EX.map(x=><option key={x} value={x}/>)}</datalist></F>
+          <F label="Valor (R$)"><input type="number" inputMode="decimal" style={inp} value={form.val||""} onChange={e=>setForm(f=>({...f,val:e.target.value}))}/></F>
+          <F label="Dia de Vencimento"><input type="number" min="1" max="31" style={inp} value={form.due||""} onChange={e=>setForm(f=>({...f,due:e.target.value}))}/></F>
+        </Modal>
+      )}
+      {modal==="goal"&&(
+        <Modal title={form.id?"Editar Meta":"Nova Meta"} onSave={saveGoal}>
+          <F label="Nome da Meta"><input style={inp} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Ex: Viagem Europa"/></F>
+          <F label="Valor Alvo (R$)"><input type="number" inputMode="decimal" style={inp} value={form.target||""} onChange={e=>setForm(f=>({...f,target:e.target.value}))}/></F>
+          <F label="Valor Atual (R$)"><input type="number" inputMode="decimal" style={inp} value={form.current||""} onChange={e=>setForm(f=>({...f,current:e.target.value}))}/></F>
+        </Modal>
+      )}
+
+      {toast&&<div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",background:accent,color:"#fff",padding:"12px 20px",borderRadius:20,fontWeight:500,fontSize:13,zIndex:9999,whiteSpace:"nowrap"}}>✅ {toast}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
